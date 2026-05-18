@@ -14,9 +14,7 @@ step-by-step instructions are in `PFM-Tutorial/pfm_tutorial_instructions.pdf`.
 
 This repository is preserved for reproducibility and for users who want the
 original MATLAB workflow. New PFM development has moved into the
-`pfm-mefmri` release of the multi-echo fMRI pipeline:
-
-`/home/charleslynch/MultiEchofMRI-Pipeline-Beta/release/pfm-mefmri`
+`pfm-mefmri` release of the multi-echo fMRI pipeline: https://github.com/cjl2007/pfm-mefmri
 
 The newer pipeline implements both strategies below without MATLAB. The MATLAB
 versions in this repository are provided for users who want to stay close to the
