@@ -1,16 +1,10 @@
-function pfm_identify_networks(C,Ic,MidthickSurfs,Col,Priors,OutFile,OutDir,WorkbenchBinary)
+function pfm_identify_networks(m,Ic,MidthickSurfs,Col,Priors,OutFile,OutDir,WorkbenchBinary)
 % cjl; cjl2007@med.cornell.edu;
 rng(44); % for reproducibility.
 
 % make output directory;
 if ~exist(OutDir,'dir')
     mkdir(OutDir);
-end
-
-% read in the 
-% resting-state data
-if ischar(C)
-    C = ft_read_cifti_mod(C);
 end
 
 % % preallocate;
@@ -27,14 +21,6 @@ end
 % FcPriorWeight = normalize(FcPriorWeight,0.25,0.75);
 % SpatialPriorWeight = 1 - FcPriorWeight; % inverse;
 
-% count the number of cortical vertices; note: this should be 59412;
-nCorticalVertices = nnz(C.brainstructure==1) + nnz(C.brainstructure==2);
-
-% calculate the functional connectivity matrix;
-m = corr(C.data(1:nCorticalVertices,:)');
-m(eye(size(m,1))==1) = 0; % remove the diagonal;
-m(isnan(m)) = 0; % remove nans
-
 % read in 
 % infomap
 % communities 
@@ -42,15 +28,15 @@ if ischar(Ic)
     Ic = ft_read_cifti_mod(Ic); % Ic == infomap communities
 end
 
+% count the number of cortical vertices; note: this should be 59412;
+nCorticalVertices = nnz(Ic.brainstructure==1) + nnz(Ic.brainstructure==2);
+
 % extract
 % graph density
 % of interest ;
 if ~isempty(Col)
     Ic.data = Ic.data(:,Col);
 end
-
-O = Ic; % preallocate output
-O.data = zeros(size(Ic.data));
 
 % unique infomap communities;
 uCi = unique(nonzeros(Ic.data));
@@ -63,7 +49,7 @@ uCi_FC = zeros(nCorticalVertices,length(uCi)); %
 for i = 1:length(uCi)
     
     % calculate functional connectivity profile of community "i";
-    uCi_FC(:,i) = nanmean(m(:,Ic.data(1:nCorticalVertices)==uCi(i)),2);
+    uCi_FC(:,i) = nanmean(m(1:nCorticalVertices,find(Ic.data(1:nCorticalVertices)==uCi(i))),2);
     
 end
 
@@ -217,7 +203,7 @@ for i = 1:length(uCi)
     for ii = 1:length(uCi)
 
         % calculate functional connectivity strength between communities "i" and "ii"
-        tmp = m(Ic.data(1:nCorticalVertices)==uCi(i),Ic.data(1:nCorticalVertices)==uCi(ii));
+        tmp = m(find(Ic.data(1:nCorticalVertices)==uCi(i)),find(Ic.data(1:nCorticalVertices)==uCi(ii)));
         FC(i,ii) = nanmean(tmp(:));
         O.data(Ic.data==uCi(ii),i) = FC(i,ii);
         
