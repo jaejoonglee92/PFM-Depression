@@ -20,6 +20,11 @@ uCi = unique(nonzeros(Ic.data));
 
 % read in the labels;
 Labels = readtable(XLS);
+if isnumeric(Labels.Network_ManualDecision)
+    Labels.Network_ManualDecision = repmat({''}, height(Labels), 1);
+end
+wh_sconly = Labels.FC_Similarity == 0 & Labels.Spatial_Score == 0;
+Labels.Network(wh_sconly) = {'Noise'};
 
 O = Ic; % preallocate output
 O.data = zeros(size(Ic.data));
