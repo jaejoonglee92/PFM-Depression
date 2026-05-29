@@ -56,7 +56,7 @@ end
 % write out the temporary cifti file;
 %O.data(O.data==find(strcmp(Priors.NetworkLabels,'Noise')))=0;
 ft_write_cifti_mod([OutDir '/Tmp.dtseries.nii'],O);
-system([WorkbenchBinary ' -cifti-dilate ' OutDir '/Tmp.dtseries.nii COLUMN 10 10 ' OutDir '/Tmp.dtseries.nii -left-surface ' MidthickSurfs{1} ' -right-surface ' MidthickSurfs{1} ' -nearest']);
+system([WorkbenchBinary ' -cifti-dilate ' OutDir '/Tmp.dtseries.nii COLUMN 10 10 ' OutDir '/Tmp.dtseries.nii -left-surface ' MidthickSurfs{1} ' -right-surface ' MidthickSurfs{2} ' -nearest']);
 
 % write out the first network;
 system(['echo ' char(Priors.NetworkLabels{1}) ' > ' OutDir '/LabelListFile.txt ']);
