@@ -89,7 +89,7 @@ cmd = [];
 for d = 1:length(GraphDensities)
 
     % run InfoMap;
-    cmd = [cmd InfoMapBinary ' ' OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '.net ' OutDir '/ --clu -2 -s 42 -N ' num2str(NumberReps(d)) ' --no-self-links >> ' OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '_LogFile_' datestr(datetime) '.txt 2>&1 & sleep 10;'];
+    cmd = [cmd InfoMapBinary ' ' OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '.net ' OutDir '/ --clu -2 -s 42 -N ' num2str(NumberReps(d)) ' --no-self-links >> ' OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '_LogFile_' datestr(datetime, 'yyyymmdd_HHMMSS') '.txt 2>&1 & sleep 10;'];
 
 end
 system([cmd 'wait']);
@@ -105,7 +105,7 @@ idx(ismember(idx,BadVerts)) = [];
 for d = 1:length(GraphDensities)
     
     % load community partition & reorder;
-    output = readmatrix([OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '.clu'],'Delimiter',' ','NumHeaderLines',9,'FileType','text');
+    output = readmatrix([OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '.clu'],'Delimiter',' ','CommentStyle','#','FileType','text'); % header length differs across Infomap versions
     
     % reorder by node;
     [~,reorder] = sort(output(:,1));
