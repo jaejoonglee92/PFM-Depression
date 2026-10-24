@@ -1,4 +1,4 @@
-function pfm_priors_to_dlabel(PriorsSpatial,Priors,Threshold,OutFile,OutDir,WorkbenchBinary,NetworkIdx)
+function pfm_priors_to_dlabel(PriorsSpatial,Priors,Threshold,OutFile,OutDir,WorkbenchBinary,NetworkIdx,MinSize,MidthickSurfs,CorrectedAreas,Fill)
 % Threshold the spatial priors and write a single dlabel of the networks.
 % Label keys follow Priors.NetworkLabels order (1 = Default_Parietal, ...,
 % 20 = SomatoCognitiveAction) and colours come from Priors.NetworkColors, so the
@@ -12,6 +12,19 @@ function pfm_priors_to_dlabel(PriorsSpatial,Priors,Threshold,OutFile,OutDir,Work
 %   OutDir          output directory
 %   WorkbenchBinary path to wb_command
 %   NetworkIdx      (optional) which prior columns to include, default all
+%   MinSize         (optional) remove clusters of a network smaller than this
+%                   (mm^2), per network, as pfm_spatial_filtering does for the
+%                   individual PFM labels (MPCONE: 50); default 0 = no filtering
+%   MidthickSurfs   {left, right} midthickness surfaces (needed if MinSize > 0)
+%   CorrectedAreas  (optional) {left, right} vertex-area metrics for the size
+%                   threshold; for group-average surfaces use the HCP
+%                   *_midthickness_va maps, so MinSize means individual cortex
+%   Fill            (optional) true: removed grayordinates take the nearest
+%                   surviving network (as in the PFM pipeline); false: they are
+%                   left unlabelled. Default: true when Threshold == 0 (every
+%                   cortical grayordinate labelled), false otherwise (removed
+%                   islands are mostly isolated in unlabelled cortex).
+%                   Grayordinates unlabelled before filtering stay unlabelled.
 %
 % The priors sum to <= 1 at every grayordinate, so from 0.5 up at most one
 % network can pass and the labelling is unambiguous. Lower thresholds do let a
@@ -47,6 +60,59 @@ fprintf('threshold %.3g: %d of %d grayordinates labelled (%.1f%%)\n', ...
 nTie = sum(sum(D >= Threshold & D > 0,2) > 1);
 if nTie > 0
     fprintf('  %d grayordinate(s) passed several networks; assigned to the highest prior\n', nTie);
+end
+
+% optional: remove small clusters of each network, as pfm_spatial_filtering
+% does for the individual PFM labels (per network: wb_command
+% -cifti-find-clusters with MinSize; removed grayordinates then take the
+% nearest network, -cifti-dilate -nearest). Unlike pfm_spatial_filtering,
+% only the removed grayordinates are filled (and only if Fill), so cortex the
+% threshold left unlabelled stays unlabelled.
+if nargin < 8 || isempty(MinSize); MinSize = 0; end
+if nargin < 10; CorrectedAreas = []; end
+if nargin < 11 || isempty(Fill); Fill = Threshold == 0; end
+if MinSize > 0
+    if nargin < 9 || numel(MidthickSurfs) ~= 2
+        error('MinSize > 0 needs MidthickSurfs = {left, right} midthickness surfaces');
+    end
+    if isempty(CorrectedAreas)
+        SurfArgs = [' -left-surface ' MidthickSurfs{1} ' -right-surface ' MidthickSurfs{2}];
+    else
+        SurfArgs = [' -left-surface ' MidthickSurfs{1} ' -corrected-areas ' CorrectedAreas{1} ...
+            ' -right-surface ' MidthickSurfs{2} ' -corrected-areas ' CorrectedAreas{2}];
+    end
+    Pre = O.data;
+    Kept = false(size(Pre));
+    B = O; B.dimord = 'pos_time'; B.time = 0;
+    for i = unique(nonzeros(Pre))'
+        B.data = double(Pre == i);
+        ft_write_cifti_mod([OutDir '/Tmp_clu'],B);
+        Status = system([WorkbenchBinary ' -cifti-find-clusters ' OutDir '/Tmp_clu.dtseries.nii 0 ' num2str(MinSize) ...
+            ' 0 ' num2str(MinSize) ' COLUMN ' OutDir '/Tmp_clu.dtseries.nii' SurfArgs ' -merged-volume']);
+        if Status ~= 0; error('wb_command -cifti-find-clusters failed (status %d)',Status); end
+        C = ft_read_cifti_mod([OutDir '/Tmp_clu.dtseries.nii']);
+        Kept = Kept | C.data ~= 0;
+    end
+    Removed = Pre > 0 & ~Kept;
+    Post = Pre; Post(Removed) = 0;
+    if Fill && any(Removed)
+        B.data = Post;
+        ft_write_cifti_mod([OutDir '/Tmp_clu'],B);
+        Status = system([WorkbenchBinary ' -cifti-dilate ' OutDir '/Tmp_clu.dtseries.nii COLUMN 50 50 -left-surface ' ...
+            MidthickSurfs{1} ' -right-surface ' MidthickSurfs{2} ' ' OutDir '/Tmp_clu.dtseries.nii -nearest']);
+        if Status ~= 0; error('wb_command -cifti-dilate failed (status %d)',Status); end
+        C = ft_read_cifti_mod([OutDir '/Tmp_clu.dtseries.nii']);
+        Post(Removed) = C.data(Removed);
+    end
+    delete([OutDir '/Tmp_clu.dtseries.nii']);
+    fprintf('  clusters < %g mm^2 removed: %d grayordinates; %d refilled from the nearest network, %d unlabelled\n', ...
+        MinSize, sum(Removed), sum(Removed & Post > 0), sum(Removed & Post == 0));
+    for i = NetworkIdx
+        if any(Pre == i & Removed) || any(Post == i & Removed)
+            fprintf('    %-32s %5d -> %5d\n', Priors.NetworkLabels{i}, sum(Pre == i), sum(Post == i));
+        end
+    end
+    O.data = Post;
 end
 
 % label list: name, then "key R G B A", for every network actually present
