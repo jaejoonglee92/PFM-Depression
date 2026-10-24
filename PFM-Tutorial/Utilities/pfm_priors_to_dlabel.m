@@ -15,7 +15,9 @@ function pfm_priors_to_dlabel(PriorsSpatial,Priors,Threshold,OutFile,OutDir,Work
 %   MinSize         (optional) remove clusters of a network smaller than this
 %                   (mm^2), per network, as pfm_spatial_filtering does for the
 %                   individual PFM labels (MPCONE: 50); default 0 = no filtering
-%   MidthickSurfs   {left, right} midthickness surfaces (needed if MinSize > 0)
+%   MidthickSurfs   {left, right} midthickness surfaces (needed if MinSize > 0);
+%                   when given, network borders <OutFile>.L/R.border are also
+%                   written (-cifti-label-to-border)
 %   CorrectedAreas  (optional) {left, right} vertex-area metrics for the size
 %                   threshold; for group-average surfaces use the HCP
 %                   *_midthickness_va maps, so MinSize means individual cortex
@@ -136,5 +138,20 @@ if Status ~= 0
 end
 
 fprintf('wrote %s/%s.dlabel.nii\n',OutDir,OutFile);
+
+% network borders (as pfm_parse_manual_decisions_filter does for the
+% individual PFM labels), when surfaces are given; borders are tied to the
+% 32k vertices, so they can be displayed on any 32k_fs_LR surface
+if nargin >= 9 && numel(MidthickSurfs) == 2
+    h = {'L','R'};
+    for s = 1:2
+        Status = system([WorkbenchBinary ' -cifti-label-to-border ' OutDir '/' OutFile '.dlabel.nii -border ' ...
+            MidthickSurfs{s} ' ' OutDir '/' OutFile '.' h{s} '.border']);
+        if Status ~= 0
+            error('wb_command -cifti-label-to-border failed (status %d)',Status);
+        end
+    end
+    fprintf('wrote %s/%s.{L,R}.border\n',OutDir,OutFile);
+end
 
 end
