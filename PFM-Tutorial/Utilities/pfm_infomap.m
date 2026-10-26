@@ -1,5 +1,13 @@
-function pfm_infomap(C,D,m,OutDir,GraphDensities,NumberReps,MinDistance,BadVerts,Structures,InfoMapBinary)
+function pfm_infomap(C,D,m,OutDir,GraphDensities,NumberReps,MinDistance,BadVerts,Structures,InfoMapBinary,ParallelTrials)
 % cjl; cjl2007@med.cornell.edu;
+% ParallelTrials (optional, default false): true runs the NumberReps trials of each density in
+% parallel (Infomap --parallel-trials, requires Infomap >= v2.12.0), using MATLAB's
+% maxNumCompThreads split across the densities (which run at the same time); a positive
+% number sets the threads per density directly. Ignored with a warning for older versions.
+% With Infomap 2.15.1 (per-trial seeds) the result is identical to serial trials.
+if nargin < 11 || isempty(ParallelTrials)
+    ParallelTrials = false;
+end
 rng(44); % for reproducibility.
 
 % define the infomap binary location (v2.0.0 used here);
@@ -84,15 +92,21 @@ for d = 1:length(GraphDensities)
     
 end
 
-% Infomap >= v2.12.0: run the trials of each density in parallel (--parallel-trials);
-% the thread budget (MATLAB maxNumCompThreads) is split across the densities, which
-% run at the same time. Older versions (or an unreadable version) run trials serially.
+% optional parallel trials (see ParallelTrials above);
 ParallelOpt = '';
-[~, VersionText] = system([InfoMapBinary ' --version']);
-Version = str2double(regexp(VersionText, 'version (\d+)\.(\d+)\.(\d+)', 'tokens', 'once'));
-if numel(Version) == 3 && all(isfinite(Version)) && Version * [1e6; 1e3; 1] >= 2012000
-    nThreads = max(1, floor(maxNumCompThreads / length(GraphDensities)));
-    ParallelOpt = [' --parallel-trials --num-threads ' num2str(nThreads)];
+if ~isequal(ParallelTrials, false) && ~isequal(ParallelTrials, 0)
+    [~, VersionText] = system([InfoMapBinary ' --version']);
+    Version = str2double(regexp(VersionText, 'version (\d+)\.(\d+)\.(\d+)', 'tokens', 'once'));
+    if numel(Version) == 3 && all(isfinite(Version)) && Version * [1e6; 1e3; 1] >= 2012000
+        if islogical(ParallelTrials)
+            nThreads = max(1, floor(maxNumCompThreads / length(GraphDensities)));
+        else
+            nThreads = max(1, round(ParallelTrials));
+        end
+        ParallelOpt = [' --parallel-trials --num-threads ' num2str(nThreads)];
+    else
+        warning('pfm_infomap:parallel', 'ParallelTrials needs Infomap >= 2.12.0 (found: %s); running trials serially.', strtrim(VersionText));
+    end
 end
 
 % sweep through the densities;
