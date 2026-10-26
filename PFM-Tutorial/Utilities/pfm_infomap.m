@@ -84,12 +84,23 @@ for d = 1:length(GraphDensities)
     
 end
 
+% Infomap >= v2.12.0: run the trials of each density in parallel (--parallel-trials);
+% the thread budget (MATLAB maxNumCompThreads) is split across the densities, which
+% run at the same time. Older versions (or an unreadable version) run trials serially.
+ParallelOpt = '';
+[~, VersionText] = system([InfoMapBinary ' --version']);
+Version = str2double(regexp(VersionText, 'version (\d+)\.(\d+)\.(\d+)', 'tokens', 'once'));
+if numel(Version) == 3 && all(isfinite(Version)) && Version * [1e6; 1e3; 1] >= 2012000
+    nThreads = max(1, floor(maxNumCompThreads / length(GraphDensities)));
+    ParallelOpt = [' --parallel-trials --num-threads ' num2str(nThreads)];
+end
+
 % sweep through the densities;
 cmd = [];
 for d = 1:length(GraphDensities)
 
     % run InfoMap;
-    cmd = [cmd InfoMapBinary ' ' OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '.net ' OutDir '/ --clu -2 -s 42 -N ' num2str(NumberReps(d)) ' --no-self-links >> ' OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '_LogFile_' datestr(datetime, 'yyyymmdd_HHMMSS') '.txt 2>&1 & sleep 10;'];
+    cmd = [cmd InfoMapBinary ' ' OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '.net ' OutDir '/ --clu -2 -s 42 -N ' num2str(NumberReps(d)) ' --no-self-links' ParallelOpt ' >> ' OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '_LogFile_' datestr(datetime, 'yyyymmdd_HHMMSS') '.txt 2>&1 & sleep 10;'];
 
 end
 system([cmd 'wait']);
