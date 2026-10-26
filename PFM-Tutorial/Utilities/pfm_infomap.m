@@ -83,6 +83,7 @@ for d = 1:length(GraphDensities)
     edge_idx(edge_idx(:,1) == edge_idx(:,2), :) = []; % remove self-loop
     edge_idx = unique(edge_idx, 'rows'); % remove duplicate
     edge_val = m(sub2ind(size(m), edge_idx(:,1), edge_idx(:,2)));
+    edge_idx(edge_val <= 0, :) = []; edge_val(edge_val <= 0) = []; % keep positive edges only (Infomap 2.15.1 rejects negative weights; at high densities the top-k edges can reach r <= 0)
     
     % make the bipartite pajek file;
     fid = fopen([OutDir '/Bipartite_Density' num2str(GraphDensities(d)) '.net'],'W');
